@@ -77,6 +77,25 @@ def delete_task(item_id):
     if not t:return err('Task not found.',404)
     db.session.delete(t);db.session.commit();return ok()
 
+@api_bp.post('/tasks/bulk')
+@login_required
+def bulk_tasks():
+    d=request.get_json(silent=True) or {}
+    action=d.get('action','')
+    ids=d.get('ids',[])
+    if action not in {'complete_all','incomplete_all','delete_all'}: return err('Invalid action. Use complete_all, incomplete_all, or delete_all.')
+    if not isinstance(ids,list) or not ids: return err('ids must be a non-empty list of task IDs.')
+    if len(ids)>200: return err('Cannot act on more than 200 tasks at once.')
+    tasks=Task.query.filter(Task.id.in_(ids),Task.user_id==current_user.id).all()
+    if not tasks: return err('No matching tasks found.',404)
+    if action=='delete_all':
+        for t in tasks: db.session.delete(t)
+    else:
+        completed=(action=='complete_all')
+        for t in tasks: t.completed=completed
+    db.session.commit()
+    return ok({'affected':len(tasks)})
+
 @api_bp.get('/notes')
 @login_required
 def get_notes():
