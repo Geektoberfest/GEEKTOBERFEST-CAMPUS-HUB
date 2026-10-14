@@ -5,7 +5,7 @@
         <p class="eyebrow">Your study shelf</p>
         <h1>Notes</h1>
     </div>
-    <button class="btn primary" onclick="openModal('note-modal')">+ New note</button>
+    <button class="btn primary" onclick="document.getElementById('noteForm').reset();document.getElementById('noteTitle').textContent='New note';updateNoteCharCount();openModal('note-modal')">+ New note</button>
 </div>
 <div class="toolbar">
     <input id="noteSearch" placeholder="Search title or content...">
@@ -38,7 +38,8 @@
             <input type="hidden" name="id">
             <label>Title<input name="title" required maxlength="150"></label>
             <label>Subject<input name="subject" maxlength="100"></label>
-            <label>Content<textarea name="content" required maxlength="10000" rows="10"></textarea></label>
+            <label>Content<textarea id="noteContent" name="content" required maxlength="10000" rows="10"></textarea></label>
+            <div class="char-counter muted"><span id="noteCharCount">10000</span> characters remaining</div>
             <button class="btn primary">Save note</button>
         </form>
     </div>

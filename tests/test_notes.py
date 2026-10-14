@@ -29,3 +29,13 @@ def test_note_markdown_export(client,student,admin):
     client.post('/logout')
     login(client, 'admin@test.local')
     assert client.get(f'/notes/{nid}/export').status_code == 404
+
+def test_notes_page_and_char_counter(client,student):
+    login(client)
+    res = client.get('/notes')
+    assert res.status_code == 200
+    assert b'noteCharCount' in res.data
+    assert b'characters remaining' in res.data
+    js_res = client.get('/static/js/notes.js')
+    assert js_res.status_code == 200
+    assert b'updateNoteCharCount' in js_res.data
