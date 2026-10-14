@@ -36,6 +36,7 @@ class Task(db.Model):
     description = db.Column(db.Text, default='')
     priority = db.Column(db.String(20), nullable=False, default='medium')
     category = db.Column(db.String(30), nullable=False, default='other')
+    recurrence = db.Column(db.String(20), nullable=False, default='none')
     due_date = db.Column(db.Date, nullable=True, index=True)
     completed = db.Column(db.Boolean, default=False, nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False)

@@ -1,4 +1,5 @@
-from datetime import datetime
+import calendar
+from datetime import date, datetime, timedelta
 from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 from sqlalchemy import or_
@@ -17,7 +18,21 @@ def parse_date(value):
     try: return datetime.strptime(value,'%Y-%m-%d').date()
     except ValueError: raise ValueError('Date must use YYYY-MM-DD.')
 
-def task_json(t): return {'id':t.id,'title':t.title,'description':t.description,'priority':t.priority,'category':t.category,'due_date':t.due_date.isoformat() if t.due_date else None,'completed':t.completed}
+def next_recurrence_date(base_date, recurrence):
+    if not base_date:
+        base_date = date.today()
+    if recurrence == 'daily':
+        return base_date + timedelta(days=1)
+    elif recurrence == 'weekly':
+        return base_date + timedelta(days=7)
+    elif recurrence == 'monthly':
+        year = base_date.year + (base_date.month // 12)
+        month = (base_date.month % 12) + 1
+        day = min(base_date.day, calendar.monthrange(year, month)[1])
+        return date(year, month, day)
+    return None
+
+def task_json(t): return {'id':t.id,'title':t.title,'description':t.description,'priority':t.priority,'category':t.category,'recurrence':t.recurrence,'due_date':t.due_date.isoformat() if t.due_date else None,'completed':t.completed}
 def note_json(n): return {'id':n.id,'title':n.title,'content':n.content,'subject':n.subject,'created_at':n.created_at.isoformat(),'updated_at':n.updated_at.isoformat()}
 def resource_json(r): return {'id':r.id,'title':r.title,'description':r.description,'subject':r.subject,'resource_type':r.resource_type,'url':r.url}
 def announcement_json(a): return {'id':a.id,'title':a.title,'content':a.content,'category':a.category,'priority':a.priority,'created_at':a.created_at.isoformat()}
@@ -36,12 +51,14 @@ def register_api():
 @login_required
 def get_tasks():
     q=clean(request.args.get('search','')).lower(); status=request.args.get('status','all'); priority=request.args.get('priority','all'); category=request.args.get('category','all')
+    recurrence=request.args.get('recurrence','all')
     query=Task.query.filter_by(user_id=current_user.id)
     if q: query=query.filter(Task.title.ilike(f'%{q}%'))
     if status=='pending': query=query.filter_by(completed=False)
     if status=='completed': query=query.filter_by(completed=True)
     if priority!='all': query=query.filter_by(priority=priority)
     if category!='all': query=query.filter_by(category=category)
+    if recurrence!='all': query=query.filter_by(recurrence=recurrence)
     return ok([task_json(t) for t in query.order_by(Task.due_date.asc().nullslast()).all()])
 
 @api_bp.post('/tasks')
@@ -49,8 +66,14 @@ def get_tasks():
 def create_task():
     d=request.get_json(silent=True) or {}
     try:
-        t=Task(user_id=current_user.id,title=limited(d.get('title'),150),description=limited(d.get('description'),2000,False),priority=d.get('priority','medium'),category=d.get('category','other'),due_date=parse_date(d.get('due_date')))
-        if t.priority not in {'low','medium','high'} or t.category not in {'assignment','exam','project','personal','other'}: return err('Invalid task priority or category.')
+        priority=d.get('priority','medium')
+        category=d.get('category','other')
+        recurrence=d.get('recurrence','none')
+        if priority not in {'low','medium','high'} or category not in {'assignment','exam','project','personal','other'}:
+            return err('Invalid task priority or category.')
+        if recurrence not in {'none','daily','weekly','monthly'}:
+            return err('Invalid task recurrence.')
+        t=Task(user_id=current_user.id,title=limited(d.get('title'),150),description=limited(d.get('description'),2000,False),priority=priority,category=category,recurrence=recurrence,due_date=parse_date(d.get('due_date')))
         db.session.add(t); db.session.commit(); return ok(task_json(t),201)
     except ValueError as e: return err(str(e))
 
@@ -65,8 +88,27 @@ def update_task(item_id):
         if 'description' in d:t.description=limited(d['description'],2000,False)
         if 'priority' in d and d['priority'] in {'low','medium','high'}:t.priority=d['priority']
         if 'category' in d and d['category'] in {'assignment','exam','project','personal','other'}:t.category=d['category']
+        if 'recurrence' in d:
+            if d['recurrence'] not in {'none','daily','weekly','monthly'}:
+                return err('Invalid task recurrence.')
+            t.recurrence=d['recurrence']
         if 'due_date' in d:t.due_date=parse_date(d['due_date'])
-        if 'completed' in d:t.completed=bool(d['completed'])
+        if 'completed' in d:
+            new_completed=bool(d['completed'])
+            if new_completed and not t.completed and t.recurrence in {'daily','weekly','monthly'}:
+                next_due=next_recurrence_date(t.due_date, t.recurrence)
+                next_t=Task(
+                    user_id=t.user_id,
+                    title=t.title,
+                    description=t.description,
+                    priority=t.priority,
+                    category=t.category,
+                    recurrence=t.recurrence,
+                    due_date=next_due,
+                    completed=False
+                )
+                db.session.add(next_t)
+            t.completed=new_completed
         db.session.commit(); return ok(task_json(t))
     except ValueError as e:return err(str(e))
 
