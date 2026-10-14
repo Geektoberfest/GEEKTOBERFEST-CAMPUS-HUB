@@ -149,6 +149,14 @@ def announcements(): return render_template('announcements.html', announcements=
 @login_required
 def notifications(): return render_template('notifications.html', notifications=Notification.query.filter_by(user_id=current_user.id).order_by(Notification.created_at.desc()).all())
 
+@main_bp.post('/notifications/mark-all-read')
+@login_required
+def mark_all_notifications_read():
+    Notification.query.filter_by(user_id=current_user.id, read=False).update({'read': True})
+    db.session.commit()
+    flash('All notifications marked as read.', 'success')
+    return redirect(url_for('main.notifications'))
+
 @main_bp.route('/profile', methods=['GET','POST'])
 @login_required
 def profile():

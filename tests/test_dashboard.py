@@ -62,3 +62,30 @@ def test_dashboard_web_date_range(client, student):
     assert resp.status_code == 200
     assert b'Last 14 days' in resp.data
     assert b'selected' in resp.data
+
+def test_mark_all_notifications_read(client,student,admin,app):
+    from app.extensions import db
+    from app.models import Notification
+    with app.app_context():
+        n1 = Notification(user_id=student, title='Alert 1', message='First', read=False)
+        n2 = Notification(user_id=student, title='Alert 2', message='Second', read=False)
+        n3 = Notification(user_id=admin, title='Admin Alert', message='Admin message', read=False)
+        db.session.add_all([n1, n2, n3])
+        db.session.commit()
+        n1_id, n2_id, n3_id = n1.id, n2.id, n3.id
+
+    login(client)
+    res = client.post('/notifications/mark-all-read', follow_redirects=True)
+    assert res.status_code == 200
+    assert b'All notifications marked as read.' in res.data
+
+    with app.app_context():
+        assert db.session.get(Notification, n1_id).read is True
+        assert db.session.get(Notification, n2_id).read is True
+        # Scoping check: admin's notification was NOT marked as read
+        assert db.session.get(Notification, n3_id).read is False
+
+    # Also test API endpoint
+    api_res = client.post('/api/notifications/mark-all-read')
+    assert api_res.status_code == 200
+    assert api_res.get_json()['success'] is True

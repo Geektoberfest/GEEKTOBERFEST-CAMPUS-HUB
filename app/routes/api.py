@@ -358,6 +358,12 @@ def read_notification(item_id):
     if not n:return err('Notification not found.',404)
     n.read=True;db.session.commit();return ok()
 
+@api_bp.post('/notifications/mark-all-read')
+@login_required
+def mark_all_notifications_read():
+    Notification.query.filter_by(user_id=current_user.id,read=False).update({'read':True})
+    db.session.commit(); return ok({'message':'All notifications marked as read'})
+
 @api_bp.post('/auth/login')
 def login_api():
     from flask_login import login_user
