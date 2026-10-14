@@ -17,7 +17,9 @@ class User(UserMixin, db.Model):
     department = db.Column(db.String(100), default='')
     year = db.Column(db.String(20), default='')
     avatar = db.Column(db.String(255), default='')
+    language = db.Column(db.String(10), default='en', nullable=False)
     joined_at = db.Column(db.DateTime, default=utcnow, nullable=False)
+
     tasks = db.relationship('Task', backref='owner', lazy=True, cascade='all, delete-orphan')
     notes = db.relationship('Note', backref='owner', lazy=True, cascade='all, delete-orphan')
     notifications = db.relationship('Notification', backref='user', lazy=True, cascade='all, delete-orphan')

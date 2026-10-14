@@ -1,10 +1,12 @@
 from datetime import date
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required
 from app.extensions import db
 from app.models import Task, Note, Resource, Announcement, Notification
 from app.services.dashboard import dashboard_stats, generate_notifications
+from app.services.i18n import SUPPORTED_LANGUAGES
 from app.utils.validation import clean, limited, valid_url
+
 
 main_bp=Blueprint('main',__name__)
 
@@ -155,6 +157,10 @@ def profile():
     if request.method=='POST':
         try:
             current_user.name=limited(request.form.get('name'),80); current_user.department=limited(request.form.get('department'),100,False); current_user.year=limited(request.form.get('year'),20,False)
+            lang = request.form.get('language')
+            if lang in SUPPORTED_LANGUAGES:
+                current_user.language = lang
+                session['lang'] = lang
             db.session.commit(); flash('Profile updated.', 'success')
         except ValueError as e: flash(str(e),'error')
     return render_template('profile.html')
@@ -325,3 +331,15 @@ def delete_group_resource(group_id, resource_id):
     db.session.commit()
     flash('Shared resource deleted.', 'success')
     return redirect(url_for('main.group_detail', group_id=group.id))
+
+from app.services.i18n import SUPPORTED_LANGUAGES
+
+@main_bp.get('/set-language/<lang>')
+def set_language(lang):
+    if lang in SUPPORTED_LANGUAGES:
+        session['lang'] = lang
+        if current_user.is_authenticated:
+            current_user.language = lang
+            db.session.commit()
+    target = request.referrer or url_for('main.dashboard' if current_user.is_authenticated else 'auth.login')
+    return redirect(target)

@@ -560,3 +560,26 @@ def delete_group_resource_api(group_id, resource_id):
     db.session.delete(r)
     db.session.commit()
     return ok({'message': 'Resource deleted successfully.'})
+
+@api_bp.get('/translations')
+def get_translations_api():
+    from app.services.i18n import get_current_language, get_translations_for_client, SUPPORTED_LANGUAGES
+    lang = request.args.get('lang') or get_current_language()
+    catalog = get_translations_for_client(lang)
+    return ok({
+        'language': lang,
+        'supported_languages': SUPPORTED_LANGUAGES,
+        'translations': catalog
+    })
+
+@api_bp.put('/user/language')
+@login_required
+def set_user_language_api():
+    from app.services.i18n import SUPPORTED_LANGUAGES
+    d = request.get_json(silent=True) or {}
+    lang = d.get('language')
+    if not lang or lang not in SUPPORTED_LANGUAGES:
+        return err(f"Invalid language. Supported: {', '.join(SUPPORTED_LANGUAGES.keys())}")
+    current_user.language = lang
+    db.session.commit()
+    return ok({'language': lang})

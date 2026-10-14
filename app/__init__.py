@@ -43,7 +43,15 @@ def create_app(test_config=None):
     @app.context_processor
     def inject_globals():
         from datetime import date
-        return {'app_name': 'CampusHub', 'now_date': date.today()}
+        from app.services.i18n import translate, get_current_language, SUPPORTED_LANGUAGES
+        return {
+            'app_name': 'CampusHub',
+            'now_date': date.today(),
+            't': translate,
+            'current_lang': get_current_language(),
+            'supported_languages': SUPPORTED_LANGUAGES
+        }
+
 
     @app.template_filter('relative_time')
     def relative_time(dt):
