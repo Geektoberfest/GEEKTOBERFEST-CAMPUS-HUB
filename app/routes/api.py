@@ -3,9 +3,11 @@ from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 from sqlalchemy import or_
 from app.extensions import db
-from app.models import Task, Note, Resource, Announcement, Notification
+from app.models import Task, Note, Resource, Announcement, Notification, StudySession
+from app.services.study_planner import generate_study_schedule, save_study_schedule
 from app.utils.validation import clean, limited, valid_url
 from app.services.dashboard import dashboard_stats
+
 
 api_bp=Blueprint('api',__name__,url_prefix='/api')
 
@@ -560,3 +562,62 @@ def delete_group_resource_api(group_id, resource_id):
     db.session.delete(r)
     db.session.commit()
     return ok({'message': 'Resource deleted successfully.'})
+
+from app.models import StudySession
+from app.services.study_planner import generate_study_schedule, save_study_schedule
+@api_bp.get('/study-planner')
+@login_required
+def get_study_planner():
+    sessions = StudySession.query.filter_by(user_id=current_user.id).order_by(StudySession.planned_date.asc(), StudySession.id.asc()).all()
+    total_hours = sum(s.duration_hours for s in sessions)
+    completed_hours = sum(s.duration_hours for s in sessions if s.completed)
+    return ok({
+        'total_hours': round(total_hours, 1),
+        'completed_hours': round(completed_hours, 1),
+        'sessions': [s.to_dict() for s in sessions]
+    })
+
+@api_bp.post('/study-planner/generate')
+@login_required
+def generate_study_plan_api():
+    d = request.get_json(silent=True) or {}
+    try:
+        daily_hours = float(d.get('daily_hours', 2.0))
+        days_ahead = int(d.get('days_ahead', 7))
+        plan = generate_study_schedule(current_user, daily_hours=daily_hours, days_ahead=days_ahead)
+        return ok(plan)
+    except ValueError as e:
+        return err(str(e))
+
+@api_bp.post('/study-planner/save')
+@login_required
+def save_study_plan_api():
+    d = request.get_json(silent=True) or {}
+    try:
+        daily_hours = float(d.get('daily_hours', 2.0))
+        days_ahead = int(d.get('days_ahead', 7))
+        plan = generate_study_schedule(current_user, daily_hours=daily_hours, days_ahead=days_ahead)
+        saved = save_study_schedule(current_user, plan)
+        return ok({
+            'message': f"Saved {len(saved)} study sessions.",
+            'plan': plan
+        }, 201)
+    except ValueError as e:
+        return err(str(e))
+
+@api_bp.post('/study-planner/sessions/<int:session_id>/toggle')
+@login_required
+def toggle_study_session_api(session_id):
+    sess = StudySession.query.filter_by(id=session_id, user_id=current_user.id).first()
+    if not sess:
+        return err('Study session not found.', 404)
+    sess.completed = not sess.completed
+    db.session.commit()
+    return ok(sess.to_dict())
+
+@api_bp.delete('/study-planner/sessions')
+@login_required
+def clear_study_sessions_api():
+    StudySession.query.filter_by(user_id=current_user.id).delete()
+    db.session.commit()
+    return ok({'message': 'Study plan cleared successfully.'})

@@ -174,3 +174,32 @@ class StudyGroupResource(db.Model):
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
 
     user = db.relationship('User', backref='shared_group_resources')
+
+
+class StudySession(db.Model):
+    __tablename__ = 'study_sessions'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    task_id = db.Column(db.Integer, db.ForeignKey('tasks.id', ondelete='SET NULL'), nullable=True, index=True)
+    title = db.Column(db.String(150), nullable=False)
+    planned_date = db.Column(db.Date, nullable=False, index=True)
+    duration_hours = db.Column(db.Float, default=1.0, nullable=False)
+    completed = db.Column(db.Boolean, default=False, nullable=False)
+    notes = db.Column(db.String(255), default='')
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
+
+    user = db.relationship('User', backref=db.backref('study_sessions', lazy=True, cascade='all, delete-orphan'))
+    task = db.relationship('Task', backref=db.backref('study_sessions', lazy=True))
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'task_id': self.task_id,
+            'title': self.title,
+            'planned_date': self.planned_date.isoformat() if self.planned_date else None,
+            'duration_hours': self.duration_hours,
+            'completed': self.completed,
+            'notes': self.notes,
+            'task_title': self.task.title if self.task else None
+        }

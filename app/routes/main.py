@@ -2,9 +2,11 @@ from datetime import date
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from app.extensions import db
-from app.models import Task, Note, Resource, Announcement, Notification
+from app.models import Task, Note, Resource, Announcement, Notification, StudySession
 from app.services.dashboard import dashboard_stats, generate_notifications
+from app.services.study_planner import generate_study_schedule, save_study_schedule
 from app.utils.validation import clean, limited, valid_url
+
 
 main_bp=Blueprint('main',__name__)
 
@@ -325,3 +327,48 @@ def delete_group_resource(group_id, resource_id):
     db.session.commit()
     flash('Shared resource deleted.', 'success')
     return redirect(url_for('main.group_detail', group_id=group.id))
+
+from app.models import StudySession
+from app.services.study_planner import generate_study_schedule, save_study_schedule
+@main_bp.get('/study-planner')
+@login_required
+def study_planner():
+    daily_hours = float(request.args.get('daily_hours', 2.0))
+    days_ahead = int(request.args.get('days_ahead', 7))
+    plan = generate_study_schedule(current_user, daily_hours=daily_hours, days_ahead=days_ahead)
+    saved_sessions = StudySession.query.filter_by(user_id=current_user.id).order_by(StudySession.planned_date.asc(), StudySession.id.asc()).all()
+    return render_template('study_planner.html', plan=plan, saved_sessions=saved_sessions, daily_hours=daily_hours, days_ahead=days_ahead)
+
+@main_bp.post('/study-planner/generate')
+@login_required
+def generate_planner():
+    try:
+        daily_hours = float(request.form.get('daily_hours', 2.0))
+        days_ahead = int(request.form.get('days_ahead', 7))
+        plan = generate_study_schedule(current_user, daily_hours=daily_hours, days_ahead=days_ahead)
+        if request.form.get('save_plan') == 'true':
+            save_study_schedule(current_user, plan)
+            flash('Study schedule generated and saved to your plan!', 'success')
+        else:
+            flash('Study schedule generated.', 'info')
+    except ValueError as e:
+        flash(str(e), 'error')
+    return redirect(url_for('main.study_planner', daily_hours=daily_hours, days_ahead=days_ahead))
+
+@main_bp.post('/study-planner/sessions/<int:session_id>/toggle')
+@login_required
+def toggle_study_session(session_id):
+    sess = StudySession.query.filter_by(id=session_id, user_id=current_user.id).first()
+    if sess:
+        sess.completed = not sess.completed
+        db.session.commit()
+        flash('Session updated.', 'success')
+    return redirect(url_for('main.study_planner'))
+
+@main_bp.post('/study-planner/clear')
+@login_required
+def clear_study_planner():
+    StudySession.query.filter_by(user_id=current_user.id).delete()
+    db.session.commit()
+    flash('Saved study sessions cleared.', 'info')
+    return redirect(url_for('main.study_planner'))

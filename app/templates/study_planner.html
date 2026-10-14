@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Smart schedule optimization</p>
+    <h1>Personal Study Planner</h1>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom: 24px;">
+  <form method="POST" action="{{ url_for('main.generate_planner') }}" style="display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div>
+      <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">Daily Study Hours</label>
+      <select name="daily_hours" style="border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: #fff;">
+        <option value="1.0" {% if daily_hours == 1.0 %}selected{% endif %}>1.0 hour / day</option>
+        <option value="1.5" {% if daily_hours == 1.5 %}selected{% endif %}>1.5 hours / day</option>
+        <option value="2.0" {% if daily_hours == 2.0 %}selected{% endif %}>2.0 hours / day</option>
+        <option value="3.0" {% if daily_hours == 3.0 %}selected{% endif %}>3.0 hours / day</option>
+        <option value="4.0" {% if daily_hours == 4.0 %}selected{% endif %}>4.0 hours / day</option>
+        <option value="6.0" {% if daily_hours == 6.0 %}selected{% endif %}>6.0 hours / day</option>
+      </select>
+    </div>
+
+    <div>
+      <label style="font-size: 13px; font-weight: 600; display: block; margin-bottom: 6px;">Schedule Horizon</label>
+      <select name="days_ahead" style="border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: #fff;">
+        <option value="3" {% if days_ahead == 3 %}selected{% endif %}>Next 3 days</option>
+        <option value="7" {% if days_ahead == 7 %}selected{% endif %}>Next 7 days (1 week)</option>
+        <option value="14" {% if days_ahead == 14 %}selected{% endif %}>Next 14 days (2 weeks)</option>
+        <option value="21" {% if days_ahead == 21 %}selected{% endif %}>Next 21 days (3 weeks)</option>
+      </select>
+    </div>
+
+    <div style="padding-bottom: 8px;">
+      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px;">
+        <input type="checkbox" name="save_plan" value="true" checked>
+        <span>Save to my active study tracker</span>
+      </label>
+    </div>
+
+    <button type="submit" class="btn primary">Generate Study Schedule</button>
+  </form>
+</div>
+
+<div class="stat-grid">
+  <div class="stat">
+    <span>Total Planned Study</span>
+    <strong>{{ plan.summary.total_planned_hours }} hrs</strong>
+  </div>
+  <div class="stat">
+    <span>Daily Study Target</span>
+    <strong>{{ plan.summary.daily_study_hours }} hrs</strong>
+  </div>
+  <div class="stat">
+    <span>Tasks Covered</span>
+    <strong>{{ plan.summary.total_tasks_scheduled }}</strong>
+  </div>
+  <div class="stat">
+    <span>At-Risk Tasks</span>
+    <strong style="color: {% if plan.summary.at_risk_tasks %}var(--danger){% else %}var(--text){% endif %};">
+      {{ plan.summary.at_risk_tasks|length }}
+    </strong>
+  </div>
+</div>
+
+{% if plan.summary.at_risk_tasks %}
+<div class="card" style="margin-bottom: 24px; border-left: 4px solid var(--danger); background: #fff8f8;">
+  <h3 style="margin: 0 0 8px; color: var(--danger); font-size: 15px;">⚠️ Workload Warning: Tasks with Tight Deadlines</h3>
+  <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #6b2020;">
+    {% for w in plan.summary.at_risk_tasks %}
+    <li style="margin-bottom: 4px;">{{ w.warning }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="two-col">
+  <div>
+    <h2 style="font-size: 1.15rem; margin-bottom: 12px;">Generated Daily Schedule</h2>
+    <div style="display: grid; gap: 14px;">
+      {% for day in plan.days %}
+      <div class="card" style="padding: 16px;">
+        <div class="card-head" style="margin-bottom: 10px;">
+          <div>
+            <strong>{{ day.day_name }}</strong>
+            <small class="muted">{{ day.date }}</small>
+          </div>
+          <span class="chip">{{ day.total_hours }}h planned</span>
+        </div>
+
+        {% if day.sessions %}
+        <div style="display: grid; gap: 8px;">
+          {% for s in day.sessions %}
+          <div style="border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: #fafbfc;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+              <span style="font-weight: 600;">{{ s.task_title }}</span>
+              <span class="badge {{ s.priority }}">{{ s.priority }}</span>
+            </div>
+            <div style="font-size: 12px; color: var(--muted); margin-bottom: 4px;">
+              {{ s.duration_hours }}h study session · {{ s.focus }}
+            </div>
+            {% if s.due_date %}
+            <small style="font-size: 11px; color: var(--muted);">Due: {{ s.due_date }}</small>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty" style="padding: 15px 0; font-size: 13px;">No study sessions scheduled for this day.</div>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="card empty">No upcoming tasks found. Add pending tasks to generate a schedule!</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <h2 style="font-size: 1.15rem; margin: 0;">Active Study Sessions ({{ saved_sessions|length }})</h2>
+      {% if saved_sessions %}
+      <form method="POST" action="{{ url_for('main.clear_study_planner') }}" style="margin: 0;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="btn ghost danger" style="font-size: 12px; padding: 4px 8px;" onclick="return confirm('Clear all saved study sessions?')">Clear All</button>
+      </form>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      {% for sess in saved_sessions %}
+      <div class="list-row" style="align-items: center;">
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <form method="POST" action="{{ url_for('main.toggle_study_session', session_id=sess.id) }}" style="margin: 0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="status-btn {% if sess.completed %}done{% endif %}" style="padding: 4px 8px; font-size: 11px;">
+              {% if sess.completed %}✓ Done{% else %}Pending{% endif %}
+            </button>
+          </form>
+          <div>
+            <span style="font-weight: 600; {% if sess.completed %}text-decoration: line-through; color: var(--muted);{% endif %}">
+              {{ sess.title }}
+            </span>
+            <small class="muted">
+              📅 {{ sess.planned_date.strftime('%a, %d %b') }} · ⏱ {{ sess.duration_hours }}h
+              {% if sess.notes %} · {{ sess.notes }}{% endif %}
+            </small>
+          </div>
+        </div>
+      </div>
+      {% else %}
+      <div class="empty">No active study sessions saved yet. Check "Save to my active study tracker" when generating above.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
