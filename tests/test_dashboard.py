@@ -62,3 +62,19 @@ def test_dashboard_web_date_range(client, student):
     assert resp.status_code == 200
     assert b'Last 14 days' in resp.data
     assert b'selected' in resp.data
+
+def test_consistent_date_formatting(client,student):
+    login(client)
+    client.post('/api/tasks', json={'title':'Exam Task','due_date':'2030-05-15','priority':'high','category':'exam'})
+    # Check dashboard renders consistent DD Mon YYYY format
+    res = client.get('/dashboard')
+    assert res.status_code == 200
+    assert b'15 May 2030' in res.data
+    # Check deadlines renders consistent DD Mon YYYY format
+    dl_res = client.get('/deadlines')
+    assert dl_res.status_code == 200
+    assert b'15 May 2030' in dl_res.data
+    # Check tasks.js contains formatDisplayDate
+    js_res = client.get('/static/js/tasks.js')
+    assert js_res.status_code == 200
+    assert b'formatDisplayDate' in js_res.data
