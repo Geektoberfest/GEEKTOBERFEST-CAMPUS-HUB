@@ -8,7 +8,7 @@
     <button class="btn primary" onclick="openModal('note-modal')">+ New note</button>
 </div>
 <div class="toolbar">
-    <input id="noteSearch" placeholder="Search title or content...">
+    <input id="noteSearch" placeholder="Search title or content..." aria-label="Search notes">
 </div>
 <div id="notesGrid" class="notes-grid">
     {% for n in notes %}
@@ -32,7 +32,7 @@
 </div>
 <div id="note-modal" class="modal">
     <div class="modal-box">
-        <button class="close" onclick="closeModal('note-modal')">×</button>
+        <button class="close" aria-label="Close dialog" onclick="closeModal('note-modal')">×</button>
         <h2 id="noteTitle">New note</h2>
         <form id="noteForm" class="form-grid">
             <input type="hidden" name="id">
