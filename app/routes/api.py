@@ -388,6 +388,35 @@ def read_notification(item_id):
     if not n:return err('Notification not found.',404)
     n.read=True;db.session.commit();return ok()
 
+@api_bp.get('/notifications/preferences')
+@login_required
+def get_notification_preferences():
+    prefs = current_user.get_notification_preferences()
+    return ok(prefs.to_dict())
+
+@api_bp.put('/notifications/preferences')
+@login_required
+def update_notification_preferences():
+    d = request.get_json(silent=True) or {}
+    prefs = current_user.get_notification_preferences()
+    if 'notify_overdue' in d:
+        prefs.notify_overdue = bool(d['notify_overdue'])
+    if 'notify_due_soon' in d:
+        prefs.notify_due_soon = bool(d['notify_due_soon'])
+    if 'notify_announcements' in d:
+        prefs.notify_announcements = bool(d['notify_announcements'])
+    if 'reminder_days_before' in d:
+        try:
+            val = int(d['reminder_days_before'])
+            if val < 1 or val > 30:
+                return err('Reminder days must be between 1 and 30.')
+            prefs.reminder_days_before = val
+        except (ValueError, TypeError):
+            return err('Invalid reminder_days_before value.')
+    db.session.commit()
+    return ok(prefs.to_dict())
+
+
 @api_bp.post('/auth/login')
 def login_api():
     from flask_login import login_user

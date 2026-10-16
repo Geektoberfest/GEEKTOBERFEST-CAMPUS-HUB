@@ -56,12 +56,35 @@ def dashboard_stats(user, start_date=None, end_date=None, period='7d'):
 
 def generate_notifications(user):
     from app.extensions import db
-    today=date.today(); tomorrow=today+timedelta(days=1)
-    existing={(n.title,n.message) for n in user.notifications if n.created_at.date()==today}
+    prefs = user.get_notification_preferences()
+    today = date.today()
+    reminder_target = today + timedelta(days=prefs.reminder_days_before)
+    existing = {(n.title, n.message) for n in user.notifications if n.created_at.date() == today}
     for task in user.tasks:
         if not task.completed and task.due_date:
-            if task.due_date < today: title='Task overdue'; message=f'"{task.title}" is overdue.'; kind='warning'
-            elif task.due_date == tomorrow: title='Task due tomorrow'; message=f'"{task.title}" is due tomorrow.'; kind='info'
-            else: continue
-            if (title,message) not in existing: db.session.add(Notification(user_id=user.id,title=title,message=message,kind=kind))
+            if prefs.notify_overdue and task.due_date < today:
+                title = 'Task overdue'
+                message = f'"{task.title}" is overdue.'
+                kind = 'warning'
+            elif prefs.notify_due_soon and task.due_date == reminder_target:
+                if prefs.reminder_days_before == 1:
+                    title = 'Task due tomorrow'
+                    message = f'"{task.title}" is due tomorrow.'
+                else:
+                    title = f'Task due in {prefs.reminder_days_before} days'
+                    message = f'"{task.title}" is due in {prefs.reminder_days_before} days.'
+                kind = 'info'
+            else:
+                continue
+            if (title, message) not in existing:
+                db.session.add(Notification(user_id=user.id, title=title, message=message, kind=kind))
+    if prefs.notify_announcements:
+        for ann in Announcement.query.all():
+            if ann.created_at.date() == today:
+                title = 'New Announcement'
+                message = f'"{ann.title}" has been posted.'
+                kind = 'info'
+                if (title, message) not in existing:
+                    db.session.add(Notification(user_id=user.id, title=title, message=message, kind=kind))
     db.session.commit()
+

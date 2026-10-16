@@ -158,7 +158,26 @@ def announcements(): return render_template('announcements.html', announcements=
 
 @main_bp.get('/notifications')
 @login_required
-def notifications(): return render_template('notifications.html', notifications=Notification.query.filter_by(user_id=current_user.id).order_by(Notification.created_at.desc()).all())
+def notifications():
+    return render_template('notifications.html', notifications=Notification.query.filter_by(user_id=current_user.id).order_by(Notification.created_at.desc()).all(), preferences=current_user.get_notification_preferences())
+
+@main_bp.post('/notifications/preferences')
+@login_required
+def update_preferences():
+    prefs = current_user.get_notification_preferences()
+    prefs.notify_overdue = 'notify_overdue' in request.form
+    prefs.notify_due_soon = 'notify_due_soon' in request.form
+    prefs.notify_announcements = 'notify_announcements' in request.form
+    try:
+        days = int(request.form.get('reminder_days_before', 1))
+        if 1 <= days <= 30:
+            prefs.reminder_days_before = days
+    except (ValueError, TypeError):
+        pass
+    db.session.commit()
+    flash('Notification preferences updated.', 'success')
+    return redirect(url_for('main.notifications'))
+
 
 @main_bp.get('/search')
 @login_required

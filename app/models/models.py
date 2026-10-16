@@ -21,6 +21,15 @@ class User(UserMixin, db.Model):
     tasks = db.relationship('Task', backref='owner', lazy=True, cascade='all, delete-orphan')
     notes = db.relationship('Note', backref='owner', lazy=True, cascade='all, delete-orphan')
     notifications = db.relationship('Notification', backref='user', lazy=True, cascade='all, delete-orphan')
+    preferences = db.relationship('NotificationPreference', backref='user', uselist=False, cascade='all, delete-orphan')
+
+    def get_notification_preferences(self):
+        if not self.preferences:
+            pref = NotificationPreference(user_id=self.id)
+            db.session.add(pref)
+            db.session.commit()
+            return pref
+        return self.preferences
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -174,3 +183,23 @@ class StudyGroupResource(db.Model):
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
 
     user = db.relationship('User', backref='shared_group_resources')
+
+
+class NotificationPreference(db.Model):
+    __tablename__ = 'notification_preferences'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), unique=True, nullable=False, index=True)
+    notify_overdue = db.Column(db.Boolean, default=True, nullable=False)
+    notify_due_soon = db.Column(db.Boolean, default=True, nullable=False)
+    notify_announcements = db.Column(db.Boolean, default=True, nullable=False)
+    reminder_days_before = db.Column(db.Integer, default=1, nullable=False)
+    updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow, nullable=False)
+
+    def to_dict(self):
+        return {
+            'notify_overdue': self.notify_overdue,
+            'notify_due_soon': self.notify_due_soon,
+            'notify_announcements': self.notify_announcements,
+            'reminder_days_before': self.reminder_days_before,
+            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }

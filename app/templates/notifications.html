@@ -1,1 +1,55 @@
-{% extends 'base.html' %}{% block content %}<div class="page-head"><div><p class="eyebrow">Stay on top of things</p><h1>Notifications</h1></div></div><div class="card">{% for n in notifications %}<div class="notification {% if not n.read %}unread{% endif %}"><span class="notification-icon">{% if n.kind=='warning' %}⚠{% else %}●{% endif %}</span><div><strong>{{n.title}}</strong><p>{{n.message}}</p><small title="{{n.created_at.strftime('%d %b %Y, %I:%M %p')}}">{{n.created_at|relative_time}}</small></div></div>{% else %}<div class="empty">You’re all caught up.</div>{% endfor %}</div>{% endblock %}
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Stay on top of things</p>
+    <h1>Notifications</h1>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom: 20px;">
+  <h2>Notification Preferences</h2>
+  <form method="POST" action="{{ url_for('main.update_preferences') }}">
+    <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+        <input type="checkbox" name="notify_overdue" id="notify_overdue" {% if preferences.notify_overdue %}checked{% endif %}>
+        <span>Overdue task notifications</span>
+      </label>
+      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+        <input type="checkbox" name="notify_due_soon" id="notify_due_soon" {% if preferences.notify_due_soon %}checked{% endif %}>
+        <span>Upcoming due date reminders</span>
+      </label>
+      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+        <input type="checkbox" name="notify_announcements" id="notify_announcements" {% if preferences.notify_announcements %}checked{% endif %}>
+        <span>New announcement notifications</span>
+      </label>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+      <label for="reminder_days_before" style="font-weight: 600; font-size: 13px;">Reminder timing:</label>
+      <select name="reminder_days_before" id="reminder_days_before" style="border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; background: #fff;">
+        <option value="1" {% if preferences.reminder_days_before == 1 %}selected{% endif %}>1 day before due date</option>
+        <option value="2" {% if preferences.reminder_days_before == 2 %}selected{% endif %}>2 days before due date</option>
+        <option value="3" {% if preferences.reminder_days_before == 3 %}selected{% endif %}>3 days before due date</option>
+        <option value="7" {% if preferences.reminder_days_before == 7 %}selected{% endif %}>7 days before due date</option>
+      </select>
+    </div>
+    <button type="submit" class="btn primary">Save Preferences</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>Your Notifications</h2>
+  {% for n in notifications %}
+  <div class="notification {% if not n.read %}unread{% endif %}">
+    <span class="notification-icon">{% if n.kind=='warning' %}⚠{% else %}●{% endif %}</span>
+    <div>
+      <strong>{{n.title}}</strong>
+      <p>{{n.message}}</p>
+      <small title="{{n.created_at.strftime('%d %b %Y, %I:%M %p')}}">{{n.created_at|relative_time}}</small>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty">You’re all caught up.</div>
+  {% endfor %}
+</div>
+{% endblock %}
