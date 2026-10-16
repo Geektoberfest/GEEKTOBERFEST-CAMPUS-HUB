@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-head">
+    <div>
+        <p class="eyebrow"><a href="{{ url_for('main.resources') }}" style="color:inherit;text-decoration:none;">&larr; Back to resources</a></p>
+        <h1>{{ resource.title }}</h1>
+    </div>
+    <div>
+        <a class="btn primary" href="{{ resource.url }}" target="_blank" rel="noopener">Open Resource &nearr;</a>
+        {% if current_user.role == 'admin' %}
+        <a class="btn" href="{{ url_for('admin.dashboard') }}#resources">Manage resources</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card" style="max-width: 800px;">
+    <div style="display:flex; gap:10px; align-items:center; margin-bottom:20px; flex-wrap:wrap;">
+        <span class="chip">{{ resource.resource_type }}</span>
+        <span class="chip" style="background:#eef1ff;color:var(--primary);">{{ resource.subject }}</span>
+        <small class="muted" style="margin-left:auto;">Added {{ resource.created_at.strftime('%d %b %Y') }}</small>
+    </div>
+
+    <div style="margin-bottom:24px;">
+        <h3 style="margin-bottom:8px;">Description</h3>
+        <p style="white-space:pre-wrap;line-height:1.6;color:var(--text);margin:0;">{{ resource.description or 'No description provided.' }}</p>
+    </div>
+
+    <div style="border-top:1px solid var(--line);padding-top:20px;display:flex;flex-direction:column;gap:12px;">
+        <h3 style="margin:0;">External Link</h3>
+        <div>
+            <a href="{{ resource.url }}" target="_blank" rel="noopener" style="color:var(--primary);word-break:break-all;">{{ resource.url }}</a>
+        </div>
+        <div>
+            <a class="btn primary" href="{{ resource.url }}" target="_blank" rel="noopener">Visit {{ resource.resource_type }} &nearr;</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

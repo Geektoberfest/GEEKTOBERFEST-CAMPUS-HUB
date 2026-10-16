@@ -359,6 +359,13 @@ def get_resources():
     if typ!='all':query=query.filter_by(resource_type=typ)
     return ok([resource_json(r) for r in query.order_by(Resource.created_at.desc()).all()])
 
+@api_bp.get('/resources/<int:item_id>')
+@login_required
+def get_resource(item_id):
+    r = db.session.get(Resource, item_id)
+    if not r: return err('Resource not found.', 404)
+    return ok(resource_json(r))
+
 @api_bp.get('/announcements')
 @login_required
 def get_announcements():
