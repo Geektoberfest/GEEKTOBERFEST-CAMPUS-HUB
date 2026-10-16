@@ -105,7 +105,35 @@ All JSON endpoints return `{success, data}` on success and `{success:false,error
 | GET | `/api/dashboard` | Student | Dashboard stats |
 | GET | `/api/notifications` | Student | Notifications |
 
+## Database backup and restore
+CampusHub includes CLI commands to backup and restore application data with safeguards against accidental data loss.
+
+### Creating a backup
+```bash
+# JSON format backup (default) saved to instance/backups/
+flask db-backup
+
+# Custom destination path
+flask db-backup -o custom_backup.json
+
+# SQLite format backup
+flask db-backup -f sqlite -o custom_backup.db
+```
+
+### Restoring a backup
+```bash
+# Interactive restore (prompts for confirmation and creates a pre-restore safety backup)
+flask db-restore -i instance/backups/campushub_backup_example.json
+
+# Non-interactive restore with confirmation flag
+flask db-restore -i custom_backup.json --yes
+
+# Restore without automatic safety backup
+flask db-restore -i custom_backup.json --yes --no-safety-backup
+```
+
 ## Testing
+
 ```bash
 pytest -q
 ```
