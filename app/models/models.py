@@ -122,6 +122,18 @@ class Announcement(db.Model):
     priority = db.Column(db.String(20), nullable=False, default='Normal')
     created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
     updated_at = db.Column(db.DateTime, default=utcnow, onupdate=utcnow, nullable=False)
+    bookmarks = db.relationship('AnnouncementBookmark', backref='announcement', cascade='all, delete-orphan', passive_deletes=True)
+
+class AnnouncementBookmark(db.Model):
+    __tablename__ = 'announcement_bookmarks'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    announcement_id = db.Column(db.Integer, db.ForeignKey('announcements.id', ondelete='CASCADE'), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=utcnow, nullable=False)
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'announcement_id', name='uq_user_announcement_bookmark'),
+    )
 
 class Notification(db.Model):
     __tablename__ = 'notifications'

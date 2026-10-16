@@ -3,7 +3,7 @@ from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_required
 from sqlalchemy import or_
 from app.extensions import db
-from app.models import Task, Note, Resource, Announcement, Notification
+from app.models import Task, Note, Resource, Announcement, Notification, AnnouncementBookmark
 from app.utils.validation import clean, limited, valid_url
 from app.services.dashboard import dashboard_stats
 
@@ -20,7 +20,7 @@ def parse_date(value):
 def task_json(t): return {'id':t.id,'title':t.title,'description':t.description,'priority':t.priority,'category':t.category,'due_date':t.due_date.isoformat() if t.due_date else None,'completed':t.completed}
 def note_json(n): return {'id':n.id,'title':n.title,'content':n.content,'subject':n.subject,'created_at':n.created_at.isoformat(),'updated_at':n.updated_at.isoformat()}
 def resource_json(r): return {'id':r.id,'title':r.title,'description':r.description,'subject':r.subject,'resource_type':r.resource_type,'url':r.url}
-def announcement_json(a): return {'id':a.id,'title':a.title,'content':a.content,'category':a.category,'priority':a.priority,'created_at':a.created_at.isoformat()}
+def announcement_json(a, bookmarked=False): return {'id':a.id,'title':a.title,'content':a.content,'category':a.category,'priority':a.priority,'created_at':a.created_at.isoformat(),'bookmarked':bookmarked}
 
 @api_bp.post('/auth/register')
 def register_api():
@@ -362,11 +362,33 @@ def get_resources():
 @api_bp.get('/announcements')
 @login_required
 def get_announcements():
-    q=clean(request.args.get('search','')).lower(); category=request.args.get('category','all'); priority=request.args.get('priority','all'); query=Announcement.query
+    q=clean(request.args.get('search','')).lower(); category=request.args.get('category','all'); priority=request.args.get('priority','all')
+    filter_type=request.args.get('filter','all')
+    query=Announcement.query
     if q:query=query.filter(or_(Announcement.title.ilike(f'%{q}%'),Announcement.content.ilike(f'%{q}%')))
     if category!='all':query=query.filter_by(category=category)
     if priority!='all':query=query.filter_by(priority=priority)
-    return ok([announcement_json(a) for a in query.order_by(Announcement.created_at.desc()).all()])
+    bookmarked_ids = {b.announcement_id for b in AnnouncementBookmark.query.filter_by(user_id=current_user.id).all()}
+    if filter_type=='bookmarked':
+        query=query.filter(Announcement.id.in_(bookmarked_ids))
+    announcements = query.order_by(Announcement.created_at.desc()).all()
+    return ok([announcement_json(a, a.id in bookmarked_ids) for a in announcements])
+
+@api_bp.post('/announcements/<int:item_id>/bookmark')
+@login_required
+def toggle_announcement_bookmark(item_id):
+    a = db.session.get(Announcement, item_id)
+    if not a: return err('Announcement not found.', 404)
+    bm = AnnouncementBookmark.query.filter_by(user_id=current_user.id, announcement_id=item_id).first()
+    if bm:
+        db.session.delete(bm)
+        db.session.commit()
+        return ok({'bookmarked': False, 'message': 'Bookmark removed.'})
+    else:
+        bm = AnnouncementBookmark(user_id=current_user.id, announcement_id=item_id)
+        db.session.add(bm)
+        db.session.commit()
+        return ok({'bookmarked': True, 'message': 'Announcement bookmarked.'}, 201)
 
 @api_bp.get('/dashboard')
 @login_required

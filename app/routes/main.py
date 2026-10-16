@@ -2,7 +2,7 @@ from datetime import date
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from app.extensions import db
-from app.models import Task, Note, Resource, Announcement, Notification
+from app.models import Task, Note, Resource, Announcement, Notification, AnnouncementBookmark
 from app.services.dashboard import dashboard_stats, generate_notifications
 from app.utils.validation import clean, limited, valid_url
 
@@ -154,7 +154,33 @@ def resources(): return render_template('resources.html', resources=Resource.que
 
 @main_bp.get('/announcements')
 @login_required
-def announcements(): return render_template('announcements.html', announcements=Announcement.query.order_by(Announcement.created_at.desc()).all())
+def announcements():
+    filter_type = request.args.get('filter', 'all')
+    bookmarked_ids = {b.announcement_id for b in AnnouncementBookmark.query.filter_by(user_id=current_user.id).all()}
+    query = Announcement.query
+    if filter_type == 'bookmarked':
+        query = query.filter(Announcement.id.in_(bookmarked_ids))
+    announcements_list = query.order_by(Announcement.created_at.desc()).all()
+    return render_template('announcements.html', announcements=announcements_list, bookmarked_ids=bookmarked_ids, filter_type=filter_type)
+
+@main_bp.post('/announcements/<int:item_id>/bookmark')
+@login_required
+def bookmark_announcement_route(item_id):
+    a = db.session.get(Announcement, item_id)
+    if not a:
+        from flask import abort
+        abort(404)
+    bm = AnnouncementBookmark.query.filter_by(user_id=current_user.id, announcement_id=item_id).first()
+    if bm:
+        db.session.delete(bm)
+        db.session.commit()
+        flash('Bookmark removed.', 'info')
+    else:
+        bm = AnnouncementBookmark(user_id=current_user.id, announcement_id=item_id)
+        db.session.add(bm)
+        db.session.commit()
+        flash('Announcement bookmarked.', 'success')
+    return redirect(request.referrer or url_for('main.announcements'))
 
 @main_bp.get('/notifications')
 @login_required
